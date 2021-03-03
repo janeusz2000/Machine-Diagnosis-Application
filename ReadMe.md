@@ -1,0 +1,1 @@
+# Zajecia z diagnostyki wibroakustycznej AGH

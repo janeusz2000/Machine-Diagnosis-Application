@@ -1,0 +1,4 @@
+KWP/ai0 - przyœpieszenie (oœ x) - kierunek prostopad³y do osi wa³u poziomy
+KWP/ai1 - przyœpieszenie (oœ Y) - kierunek prostopad³y do osi wa³u pionowy 
+KWP/ai2 - przyœpieszenie (oœ Z) - kierunek równoleg³y do osi wa³u poziomy
+KWP/ai3 - znacznik obrotów - jeden znacznik na obrót
