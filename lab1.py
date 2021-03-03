@@ -70,7 +70,7 @@ for key in dictionary.keys():
    plt.subplot(4, 1, 4)
    data_fft = np.abs(np.real(np.fft.rfft(stft)))
    plt.title("STFT: %s" % dictionary[key])
-   plt.xlabel("Time [s]")
+   plt.xlabel("Frequency [Hz]")
    plt.ylabel("Amplitude [g]")
    plt.grid("True", which='both')
    plt.semilogx(np.arange(len(data_fft)) / 2 / fs, data_fft / fs)
@@ -78,29 +78,3 @@ for key in dictionary.keys():
 
    plt.tight_layout()
    plt.savefig("./data/%s.png" % key[4:], format='png')
-
-
-# for key in dictionary.keys():
-#    group = tdms_file["Untitled"]
-#    channel = group[key]
-#    channel_data = channel[:]
-
-#
-
-#    currentLimit = 1
-#    data = list()
-#    while (currentLimit - 1) * fs < len(channel_data):
-#       if (currentLimit * fs) > len(channel_data):
-#          data = channel_data[(currentLimit-1) * fs:]
-#       else:
-#          data = channel_data[(currentLimit-1) * fs: (currentLimit) * fs]
-
-#
-
-
-
-
-# group = tdms_file['group name']
-# channel = group['channel name']
-# channel_data = channel[:]
-# channel_properties = channel.properties
