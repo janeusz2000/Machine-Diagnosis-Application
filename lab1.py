@@ -33,7 +33,7 @@ for key in dictionary.keys():
          print("RMS value %f" % rms_value)
          rmsValues.append(rms_value)
 
-         peak_value = np.max(data)
+         peak_value = np.max(data)``
          print("Peak value %f" % peak_value)
          peakValues.append(peak_value)
 
