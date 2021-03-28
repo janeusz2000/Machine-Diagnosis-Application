@@ -1,9 +1,13 @@
 from nptdms import TdmsFile
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.signal as sg
 
 global fs
 fs = 51200
+
+def Spectrum(signal):
+   return np.square(np.abs(np.fft.rfft(signal)) / signal.size)
 
 dictionary = { "KWP/ai0" : "przyspieszenie (os x) - kierunek prostopadły do osi wału poziomy",
 "KWP/ai1": "przyśpieszenie (os Y) - kierunek prostopadły do osi wału pionowy",
@@ -78,3 +82,24 @@ for key in dictionary.keys():
 
    plt.tight_layout()
    plt.savefig("./data/%s.png" % key[4:], format='png')
+
+
+   plt.figure(figsize=(10,10))
+   plt.subplot(2, 1, 1)
+   plt.title("Widmo Amplitudowo-częstotliwościowe: {}".format(dictionary[key]))
+   plt.ylabel("Amplituda")
+   plt.xlabel("Częstotliwość [Hz]")
+   spectrum = Spectrum(stft)
+   frequencyArray = np.linspace(0, fs/2, len(spectrum))
+   plt.grid(True, which='both')
+   plt.semilogx(frequencyArray, spectrum)
+
+   plt.subplot(2, 1, 2)
+   plt.title("Widmo fazowo-czętotliwościowe: {}".format(dictionary[key]))
+   plt.phase_spectrum(stft, Fs=fs)
+   plt.grid(True, which='both')
+   plt.tight_layout(pad=1.1)
+   plt.savefig('./lab2data/zad4{}.png'.format(dictionary[key]), format='png')
+
+   peaks = sg.find_peaks(spectrum, threshold=0.05 * np.max(spectrum))
+   print("in: \"{}\" peaks where found at: {}".format(dictionary[key], [str(i) + "Hz" for i in peaks[0]]))
