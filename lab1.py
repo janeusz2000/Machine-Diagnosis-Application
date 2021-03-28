@@ -18,7 +18,7 @@ dictionary = { "KWP/ai0" : "przyspieszenie (os x) - kierunek prostopadły do osi
 channel_length = 0
 for key in dictionary.keys():
 
-   with TdmsFile.open("./files/lab1/wentylator-dobry.tdms") as tdms_file:
+   with TdmsFile.open("./files/lab1data/wentylator-dobry.tdms") as tdms_file:
       current = 1
       group = tdms_file["Untitled"]
       channel = group[key]

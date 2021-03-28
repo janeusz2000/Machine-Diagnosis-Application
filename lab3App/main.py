@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import nidaqmx as ni
-import nidaqmx.stream_readers as streams
 import time
 import keyboard
 import queue
@@ -10,7 +9,7 @@ import logging
 import json
 
 from datetime import datetime
-from nptdms import TdmsFile
+from nptdms import TdmsFile, TdmsWriter, ChannelObject
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -41,10 +40,11 @@ def animationGui(que):
 
    graph1, graph2 = None, None
    first = True
-
+   data = np.array([])
    while not keyboard.is_pressed('q'):
       if first and not que.empty():
-         data = que.get()
+         with GUILOCK:
+            data = que.get()
          first = False
          spectrum = Spectrum(data)
          frequency = Freq(data)
@@ -52,22 +52,29 @@ def animationGui(que):
          graph2, = ax2.semilogx(frequency, spectrum )
          plt.show()
       elif not que.empty():
-         data = que.get()
+         with GUILOCK:
+            data = que.get()
          spectrum = Spectrum(data)
          graph1.set_ydata(data)
          graph2.set_ydata(spectrum )
          fig.canvas.draw()
-         fig.canvas.flush_events()
+      fig.canvas.flush_events()
       time.sleep(0.1)
 
-def saveToDatabase(data):
+def saveToDatabase(data, tdms_writer=None):
    currentTime = datetime.now().strftime("%H:%M:%S")
    logging.info(f"Saving data at time: {currentTime}");
-   data = {
-      "time" : currentTime,
-      "data" : data.tolist()}
-   with open(databasePath, 'a') as f:
-      f.write(json.dumps(data) + ",\n")
+
+   if JSON:
+      outputdata = {
+         "time" : currentTime,
+         "data" : data.tolist()}
+      with open(DATABASEPATH + ".js", 'a') as f:
+         f.write(json.dumps(outputdata) + ",\n")
+
+   if tdms_writer is not None:
+      channel = ChannelObject('Undefined', 'Channel1', data)
+      tdms_writer.write_segment([channel])
 
 def acquiringData(que):
    t = threading.current_thread()
@@ -94,42 +101,68 @@ def savingThread(que, guiQueue):
    t = threading.current_thread()
    name = str(t.getName())
    logging.info(f"GUI Thread: {name} started!")
-   while not keyboard.is_pressed('q'):
-      with LOCK:
-         if not que.empty():
-            temp = que.get()
-            saveToDatabase(data=temp)
-            guiQueue.put(temp)
-      time.sleep(0.2)
-   logging.info(f"GUI Thread: {name} ended!")
+   with TdmsWriter(DATABASEPATH + ".tdms") as writer:
+      while not keyboard.is_pressed('q'):
+         with LOCK:
+            if not que.empty():
+               temp = que.get()
+               saveToDatabase(data=temp, tdms_writer=writer)
+               guiQueue.put(temp)
+         time.sleep(0.2)
+      logging.info(f"GUI Thread: {name} ended!")
 
-global databasePath
-databasePath = "./ApplicationData/database.js"
+def readTDMS(pathToData, guiQueue):
 
-global LOCK
-LOCK = threading.Lock()
+   # TODO: create function that will iterate
+   # for each second in given tdms file at path
+   # and put data into guiQueue
+   with GUILOCK:
+      pass
 
-global dataQue
-dataQue = queue.Queue()
+if __name__ == "__main__":
 
-guiQueue = queue.Queue()
+   global DATABASEPATH
+   global DATAQUEUE
+   global JSON
+   global LOCK
+   global GUILOCK
+   global ACQUISITION
+   global READING
 
-# Clearing and creating new database
-with open(databasePath, "w+") as f:
-   f.write("const data = [")
+   ACQUISITION = True
+   READING = False
+   DATABASEPATH = "./ApplicationData/database"
+   LOCK = threading.Lock()
+   GUILOCK = threading.Lock()
+   JSON = True
 
-threads = list()
-threads.append(threading.Thread(target=acquiringData, args=(dataQue,)))
-threads.append(threading.Thread(target=savingThread, args=(dataQue, guiQueue)))
+   dataQueue = queue.Queue()
+   guiQueue = queue.Queue()
 
-for thread in threads:
-   thread.start()
+   threads = list()
+   if ACQUISITION:
 
-animationGui(guiQueue)
+      if JSON:
+         # Clearing and creating new database
+         with open(DATABASEPATH + ".js", "w+") as f:
+            f.write("const data = [")
 
-for thread in threads:
-   thread.join()
+      threads.append(threading.Thread(target=acquiringData, args=(dataQueue,)))
+      threads.append(threading.Thread(target=savingThread, args=(dataQueue, guiQueue)))
 
-# Closing database
-with open(databasePath, "a") as f:
-   f.write("]")
+   if READING:
+      pathToData = ""
+      threads.append(threading.Thread(target=readTDMS, args=(pathTOData, guiQueue )))
+
+   for thread in threads:
+      thread.start()
+
+   animationGui(guiQueue)
+
+   for thread in threads:
+      thread.join()
+
+   if JSON and ACQUISITION:
+      # Closing database
+      with open(DATABASEPATH + ".js", "a") as f:
+         f.write("]")
