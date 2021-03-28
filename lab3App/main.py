@@ -9,22 +9,27 @@ import logging
 import json
 
 from datetime import datetime
-from nptdms import TdmsFile, TdmsWriter, ChannelObject
+from nptdms import TdmsWriter, ChannelObject
+
 
 logging.getLogger().setLevel(logging.INFO)
+
 
 def Spectrum(signal):
    return np.square(np.abs(np.fft.rfft(signal)) / signal.size)
 
+
 def Freq(signal):
    return np.arange(len(signal) / 2 + 1)
+
 
 def Time(signal):
    return np.arange(len(signal))
 
+
 def animationGui(que):
    plt.ion()
-   fig = plt.figure(figsize=(10,10))
+   fig = plt.figure(figsize=(10, 10))
 
    ax1 = fig.add_subplot(211)
    ax1.set_title("Time Domain")
@@ -49,17 +54,18 @@ def animationGui(que):
          spectrum = Spectrum(data)
          frequency = Freq(data)
          graph1, = ax1.plot(Time(data), data)
-         graph2, = ax2.semilogx(frequency, spectrum )
+         graph2, = ax2.semilogx(frequency, spectrum)
          plt.show()
       elif not que.empty():
          with GUILOCK:
             data = que.get()
          spectrum = Spectrum(data)
          graph1.set_ydata(data)
-         graph2.set_ydata(spectrum )
+         graph2.set_ydata(spectrum)
          fig.canvas.draw()
       fig.canvas.flush_events()
       time.sleep(0.1)
+
 
 def saveToDatabase(data, tdms_writer=None):
    currentTime = datetime.now().strftime("%H:%M:%S")
@@ -67,14 +73,15 @@ def saveToDatabase(data, tdms_writer=None):
 
    if JSON:
       outputdata = {
-         "time" : currentTime,
-         "data" : data.tolist()}
+         "time": currentTime,
+         "data": data.tolist()}
       with open(DATABASEPATH + ".js", 'a') as f:
          f.write(json.dumps(outputdata) + ",\n")
 
    if tdms_writer is not None:
       channel = ChannelObject('Undefined', 'Channel1', data)
       tdms_writer.write_segment([channel])
+
 
 def acquiringData(que):
    t = threading.current_thread()
@@ -97,6 +104,7 @@ def acquiringData(que):
 
    logging.info(f"ACQUISITION Thread: {name} ended!")
 
+
 def savingThread(que, guiQueue):
    t = threading.current_thread()
    name = str(t.getName())
@@ -111,6 +119,7 @@ def savingThread(que, guiQueue):
          time.sleep(0.2)
       logging.info(f"GUI Thread: {name} ended!")
 
+
 def readTDMS(pathToData, guiQueue):
 
    # TODO: create function that will iterate
@@ -118,6 +127,7 @@ def readTDMS(pathToData, guiQueue):
    # and put data into guiQueue
    with GUILOCK:
       pass
+
 
 if __name__ == "__main__":
 
@@ -143,16 +153,19 @@ if __name__ == "__main__":
    if ACQUISITION:
 
       if JSON:
-         # Clearing and creating new database
+         # Clearing and creating new database inside .js file at DATABASEPATH
          with open(DATABASEPATH + ".js", "w+") as f:
             f.write("const data = [")
 
-      threads.append(threading.Thread(target=acquiringData, args=(dataQueue,)))
-      threads.append(threading.Thread(target=savingThread, args=(dataQueue, guiQueue)))
+      threads.append(threading.Thread(
+         target=acquiringData, args=(dataQueue,)))
+      threads.append(threading.Thread(
+         target=savingThread, args=(dataQueue, guiQueue)))
 
    if READING:
       pathToData = ""
-      threads.append(threading.Thread(target=readTDMS, args=(pathTOData, guiQueue )))
+      threads.append(threading.Thread(
+         target=readTDMS, args=(pathToData, guiQueue)))
 
    for thread in threads:
       thread.start()
