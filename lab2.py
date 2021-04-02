@@ -19,7 +19,8 @@ signalOutput = signalA + signalB
 
 maxAmplitude = np.max(signalOutput)
 print("Max amplitude: {}".format(maxAmplitude))
-powerSpectrum = np.square(np.abs(np.fft.rfft(signalOutput))/ len(timeArray))
+powerSpectrum = np.square(np.abs(
+   np.fft.rfft(signalOutput))/ len(timeArray))
 frequencyArray = np.linspace(0, fs/2, len(powerSpectrum))
 
 plt.figure()
@@ -37,7 +38,6 @@ signalOutput = list()
 time = list()
 
 with TdmsFile.open("./lab2data./Signal_GenSig.tdms") as tdms_file:
-      current = 1
       group = tdms_file["Untitled"]
       all_group_channels = group.channels();
       channel = all_group_channels[0]
@@ -53,7 +53,8 @@ timeArray = np.arange(0, signalLength, 1/fs)
 print(timeArray.size)
 maxAmplitude = np.max(signalOutput)
 print("Max amplitude: {}".format(maxAmplitude))
-powerSpectrum = np.square(np.abs(np.fft.rfft(signalOutput))/ len(timeArray))
+powerSpectrum = np.square(np.abs(np.fft.rfft(
+   signalOutput))/ len(timeArray))
 frequencyArray = np.linspace(0, fs/2, len(powerSpectrum))
 
 peaks = sg.find_peaks(powerSpectrum, threshold=0.001)
@@ -79,7 +80,8 @@ plt.figure()
 plt.plot(signalA)
 plt.savefig('./lab2data/zad3SignalReconstructed.png', format='png')
 
-powerSpectrum = np.square(np.abs(np.fft.rfft(signalA))/ len(timeArray))
+powerSpectrum = np.square(np.abs(np.fft.rfft(
+   signalA))/ len(timeArray))
 frequencyArray = np.linspace(0, fs/2, len(powerSpectrum))
 plt.figure()
 plt.semilogx(frequencyArray, powerSpectrum)
