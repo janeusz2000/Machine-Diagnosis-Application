@@ -21,10 +21,10 @@ REFERENCE = True
 ACQUISITION = False
 READING = True
 SAVE_TO_JSON = True
-FAULT_DETECTION_THRESHOLD = 0.2
+FAULT_DETECTION_THRESHOLD = 1.5
 PATH_TO_REFERENCE_TDMS = "./lab3App/lab3Went/went_OK.tdms"
-PATH_TO_TDMS = "./lab3App/lab3Went/went_OK.tdms"
-# PATH_TO_TDMS = "./lab3App/lab3Went/went_NIEW.tdms"
+# PATH_TO_TDMS = "./lab3App/lab3Went/went_OK.tdms"
+PATH_TO_TDMS = "./lab3App/lab3Went/went_NIEW.tdms"
 DATABASE_PATH = "./ApplicationData/database"
 
 # !This must be checked everytime we run diagnosis
@@ -157,7 +157,7 @@ class DiagnosisTracker:
                 self.referenceData.amplitudes[CURRENT_SENSOR] - spec)) / np.sum(
                     self.referenceData.amplitudes[CURRENT_SENSOR])
         logging.info(f"Peak in Spectrum Error: {tempSum}")
-        if tempSum < FAULT_DETECTION_THRESHOLD * np.max(spec):
+        if tempSum < FAULT_DETECTION_THRESHOLD:
             return DiagnosisFlags.AMPLITUDES_ARE_OK
         else:
             return DiagnosisFlags.AMPLITUDES_ARE_INVALID
