@@ -1,1 +1,1 @@
-# Zajecia z diagnostyki wibroakustycznej AGH
+Entry point is inside lab3App/main.py
