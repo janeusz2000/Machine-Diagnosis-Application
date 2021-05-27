@@ -22,10 +22,15 @@ ACQUISITION = False
 READING = True
 SAVE_TO_JSON = True
 FAULT_DETECTION_THRESHOLD = 1.5
-PATH_TO_REFERENCE_TDMS = "./lab3App/lab3Went/went_OK.tdms"
-# PATH_TO_TDMS = "./lab3App/lab3Went/went_OK.tdms"
-PATH_TO_TDMS = "./lab3App/lab3Went/went_NIEW.tdms"
+PATH_TO_REFERENCE_TDMS = "./lab3App/dane_analiza_rzedow/went_dobry.tdms"
+PATH_TO_TDMS = "./lab3App/dane_analiza_rzedow/went_uszk.tdms"
 DATABASE_PATH = "./ApplicationData/database"
+
+# Order Analiz parameters
+NUMBER_OF_SAMPLES_PER_ROTATION = 300
+DETECTION_THRESHOLD = -0.48qq
+LASER_SAMPLE_RATE = 51200
+SYNCHRONIZATION_CHANNEL = 3
 
 # !This must be checked everytime we run diagnosis
 sensorDictionary = {
@@ -34,14 +39,39 @@ sensorDictionary = {
     2: "acc/z - przyśpieszenie (oś Z) - kierunek prostopadły do osi wału pionowy",
 }
 
+
 GRAVITY = 9.8
 CURRENT_SENSOR = 0
+
 
 DIAGNOSIS_LOCK = threading.Lock()
 CURRENT_SENSOR_LOCK = threading.Lock()
 LOCK = threading.Lock()
 GUILOCK = threading.Lock()
 REFERENCE_LOCK = threading.Lock()
+SYNCHRONIZATION_QUEUE_LOCK = threading.Lock()
+
+
+class Configuration:
+    def __init__(self):
+        with TdmsFile.open(pathToData) as tdms_file:
+            for group in tdms_file.groups():
+                all_group_channels = group.channels()
+                sensorNumber = 0
+                for channel in all_group_channels:
+                    logging.info(
+                        "Reading sensor: {}".format(
+                            sensorDictionary[sensorNumber])
+                    )
+
+                    for chunk in channel.data_chunks():
+                        channel_chunk_data = chunk[:]
+                        self.fs = channel_chunk_data.size
+                        break
+                    break
+                break
+
+        self.STFTBufferlength = 5 * self.fs
 
 
 class DiagnosisFlags(Enum):
@@ -197,27 +227,61 @@ def Freq(signal):
 def Time(signal):
     return np.arange(len(signal))
 
+# TODO: find all minimas in time to calculate how long one rotation lasts
 
-def animationGui(que):
+
+def findAllMinimas(time):
+    return np.argwhere(time < DETECTION_THRESHOLD)
+
+# TODO: resample whole buffer into steady one signal per rotation
+
+
+def resampleBufferPerTime(buffer, time):
+    if time is not None:
+
+        minimas = findAllMinimas(time)
+        logging.info(
+            f"local minima positions: {minimas}")
+
+
+def animationGui(que, synchronizationQueue):
+    configuration = Configuration()
+    maxSTFTBufferSize = 5 * configuration.fs
+    stftBuffer = np.zeros(maxSTFTBufferSize)
+
     plt.ion()
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=(20, 10))
 
-    ax1 = fig.add_subplot(211)
+    ax1 = fig.add_subplot(411)
     ax1.set_title("Time Domain")
     ax1.set_xlabel("Buffer Sample")
     ax1.set_ylabel("Amplitude $\dfrac{m}{s^2}$")
     ax1.grid(True, which="both")
 
-    ax2 = fig.add_subplot(212)
+    ax2 = fig.add_subplot(412)
     ax2.grid(True, which="both")
     ax2.set_title("Frequency Domain")
     ax2.set_xlabel("Frequency [Hz]")
     ax2.set_ylabel("Amplitude $\dfrac{m}{s^2}$")
 
-    graph1, graph2 = None, None
+    ax3 = fig.add_subplot(413)
+    ax3.set_ylabel("frequency [Hz]")
+    ax3.set_xlabel("Time [s]")
+
+    ax4 = fig.add_subplot(414)
+    ax4.set_ylabel("Amplitude $\dfrac{m}{s^2}$")
+    ax4.set_xlabel("Order Number [-]")
+    ax4.set_title("Order Analisis")
+
+    graph1, graph2, graph3, graph4 = None, None, None, None
     first = True
     data = np.array([])
+    synchronization_data = None
     while not keyboard.is_pressed("q"):
+        if (not synchronizationQueue.empty()):
+            with SYNCHRONIZATION_QUEUE_LOCK:
+                synchronization_data = synchronizationQueue.get()
+
         if first and not que.empty():
 
             with GUILOCK:
@@ -229,6 +293,20 @@ def animationGui(que):
             (graph1,) = ax1.plot(Time(data), data * GRAVITY)
             (graph2,) = ax2.semilogx(frequency, spectrum * GRAVITY)
 
+            stftBuffer = np.roll(stftBuffer, -data.size)
+            stftBuffer[stftBuffer.size -
+                       data.size:] = np.kaiser(data.size, 1.27) * data
+            f, t, Zxx = sg.stft(stftBuffer, configuration.fs, nperseg=256)
+            graph3 = ax3.imshow(np.abs(Zxx), origin='lower', aspect='auto')
+
+            frequencies = np.round(np.arange(7) / 7 * configuration.fs, 2)
+            ax3.set_yticks([0, 20, 40, 60, 80, 100, 120])
+            ax3.set_yticklabels(frequencies)
+
+            ax3.set_xticks([0, 33.33, 66.66, 99.99, 133.33, 166.66, 199.99, ])
+            ax3.set_xticklabels(np.flip(np.arange(7)))
+
+            (graph4,) = ax4.plot(synchronization_data)
             with CURRENT_SENSOR_LOCK:
                 fig.suptitle(sensorDictionary[CURRENT_SENSOR], fontsize=16)
 
@@ -243,9 +321,17 @@ def animationGui(que):
             graph1.set_ydata(data)
             ax1.relim()
             ax1.autoscale_view()
+
             graph2.set_ydata(spectrum)
             ax2.relim()
             ax2.autoscale_view()
+
+            stftBuffer = np.roll(stftBuffer, -data.size)
+            stftBuffer[stftBuffer.size -
+                       data.size:] = np.kaiser(data.size, 1.27) * data
+            f, t, Zxx = sg.stft(stftBuffer, configuration.fs, nperseg=256)
+            graph3.set_data(np.abs(Zxx))
+            graph4.set_ydata(synchronization_data)
 
             with CURRENT_SENSOR_LOCK:
                 fig.suptitle(sensorDictionary[CURRENT_SENSOR], fontsize=16)
@@ -253,7 +339,8 @@ def animationGui(que):
             fig.canvas.draw()
 
         fig.canvas.flush_events()
-        time.sleep(0.1)
+        resampleBufferPerTime(data, synchronization_data)
+        time.sleep(0.05)
 
 
 def saveToDatabase(data, tdms_writer=None):
@@ -336,7 +423,7 @@ def diagnosisThread(diagnosisQueue, referenceData):
             buffer = None
             logDiagnosis(diagnosisResultFlags)
 
-        time.sleep(0.2)
+        time.sleep(0.5)
 
 
 def referenceDataAcquisition(dataQueue, reference):
@@ -352,7 +439,7 @@ def referenceDataAcquisition(dataQueue, reference):
         if buffer is not None:
             reference.registerBuffer(buffer)
 
-        time.sleep(0.5)
+        time.sleep(0.9)
         if dataQueue.empty():
             break
     logging.info(f"Reference Acquisition {t.getName()} Ended!")
@@ -364,35 +451,67 @@ def readTDMS(pathToData, guiQueue, diagnosisQueue):
     logging.info(
         f"Reading TDMS file at: {pathToData} started in {t.getName()}")
 
-    with TdmsFile.open(pathToData) as tdms_file:
-        for group in tdms_file.groups():
-            all_group_channels = group.channels()
-            sensorNumber = 0
-            for channel in all_group_channels:
-                logging.info(
-                    "Reading sensor: {}".format(sensorDictionary[sensorNumber])
-                )
+    def startReading(pathToData, guiQueue, diagnosisQueue):
+        with TdmsFile.open(pathToData) as tdms_file:
+            for group in tdms_file.groups():
+                all_group_channels = group.channels()
+                sensorNumber = 0
+                for channel in all_group_channels:
+                    logging.info(
+                        "Reading sensor: {}".format(
+                            sensorDictionary[sensorNumber])
+                    )
 
-                for chunk in channel.data_chunks():
-                    channel_chunk_data = chunk[:]
+                    for chunk in channel.data_chunks():
+                        channel_chunk_data = chunk[:]
 
-                    if guiQueue is not None:
-                        with GUILOCK:
-                            guiQueue.put(channel_chunk_data)
+                        if guiQueue is not None:
+                            with GUILOCK:
+                                guiQueue.put(channel_chunk_data)
 
-                    with DIAGNOSIS_LOCK:
-                        diagnosisQueue.put(channel_chunk_data)
+                        with DIAGNOSIS_LOCK:
+                            diagnosisQueue.put(channel_chunk_data)
 
-                    time.sleep(0.5)
+                        time.sleep(0.9)
+                        if keyboard.is_pressed("q"):
+                            sys.exit()
+
+                    with CURRENT_SENSOR_LOCK:
+                        global CURRENT_SENSOR
+                        if CURRENT_SENSOR != 2:
+                            CURRENT_SENSOR += 1
+                            sensorNumber += 1
+                        else:
+                            return
+
+    startReading(pathToData=pathToData, guiQueue=guiQueue,
+                 diagnosisQueue=diagnosisQueue)
+
+    logging.info(f"Reading TDMS file at: {pathToData} ended in {t.getName()}")
+
+# Reads data acquired via laser from last available channel in tdms file
+
+
+def synchronizationThread(synchronizationQueue):
+    t = threading.currentThread()
+    logging.info(f" Synchronization {t.getName()} started!")
+    for _ in range(len(sensorDictionary.keys())):
+        with TdmsFile.open(pathToData) as tdms_file:
+            for group in tdms_file.groups():
+                all_group_channels = group.channels()
+                synchronization_channel = all_group_channels[SYNCHRONIZATION_CHANNEL]
+
+                for chunk in synchronization_channel.data_chunks():
+                    current_chunk = chunk[:]
+                    with SYNCHRONIZATION_QUEUE_LOCK:
+                        synchronizationQueue.put(current_chunk)
+
                     if keyboard.is_pressed("q"):
                         sys.exit()
 
-                with CURRENT_SENSOR_LOCK:
-                    global CURRENT_SENSOR
-                    CURRENT_SENSOR += 1
-                sensorNumber += 1
+                    time.sleep(0.9)
 
-    logging.info(f"Reading TDMS file at: {pathToData} ended in {t.getName()}")
+    logging.info(f" Synchronization {t.getName()} ended!")
 
 
 if __name__ == "__main__":
@@ -431,6 +550,7 @@ if __name__ == "__main__":
     dataQueue = queue.Queue()
     guiQueue = queue.Queue()
     diagnosisQueue = queue.Queue()
+    synchronizationQueue = queue.Queue()
 
     threads = list()
 
@@ -459,13 +579,19 @@ if __name__ == "__main__":
             )
         )
 
+        threads.append(
+            threading.Thread(target=synchronizationThread,
+                             args=(synchronizationQueue, ))
+        )
+
     threads.append(threading.Thread(
         target=diagnosisThread, args=(diagnosisQueue, reference)))
 
+    logging.info(f"Threads in buffer: {threads}")
     for thread in threads:
         thread.start()
 
-    animationGui(guiQueue)
+    animationGui(guiQueue, synchronizationQueue)
 
     for thread in threads:
         thread.join()

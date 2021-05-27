@@ -99,7 +99,7 @@ for key in dictionary.keys():
    plt.phase_spectrum(stft, Fs=fs)
    plt.grid(True, which='both')
    plt.tight_layout(pad=1.1)
-   plt.savefig('./lab2data/zad4{}.png'.format(dictionary[key]), format='png')
+   plt.savefig('./a/zad4{}.png'.format(dictionary[key]), format='png')
 
    peaks = sg.find_peaks(spectrum, threshold=0.05 * np.max(spectrum))
    print("in: \"{}\" peaks where found at: {}".format(dictionary[key], [str(i) + "Hz" for i in peaks[0]]))
