@@ -1,4 +1,0 @@
-acc/x - przyœpieszenie (oœ x) - kierunek prostopad³y do osi wa³u poziomy
-acc/y - przyœpieszenie (oœ Y) - kierunek równoleg³y do osi wa³u poziomy
-acc/z - przyœpieszenie (oœ Z) - kierunek prostopad³y do osi wa³u pionowy 
-
